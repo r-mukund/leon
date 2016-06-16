@@ -13,10 +13,7 @@ import purescala.Types._
 import purescala.Common._
 import purescala.Expressions._
 import purescala.Definitions._
-import solvers.TimeoutableSolverFactory
-import solvers.{PartialModel, SolverFactory}
-import purescala.DefOps
-import solvers.{PartialModel, Model, SolverFactory, SolverContext}
+import solvers.{PartialModel, SolverFactory, SolverContext, TimeoutableSolverFactory}
 import solvers.unrolling.UnrollingProcedure
 import scala.collection.mutable.{Map => MutableMap}
 import scala.concurrent.duration._
@@ -167,10 +164,11 @@ abstract class RecursiveEvaluator(ctx: LeonContext, prog: Program, val bank: Eva
         throw RuntimeError("Exceeded number of allocated methods calls ("+gctx.maxSteps+")")
       }
       gctx.stepsLeft -= 1
+      //println("Steps left: " + gctx.stepsLeft)
 
       val evArgs = args map e
 
-      //println(s"calling ${tfd.id} with $evArgs")
+      //println("Calling " + FunctionInvocation(tfd, evArgs))
 
       // build a mapping for the function...
       val frame = rctx.withNewVars(tfd.paramSubst(evArgs))
@@ -384,7 +382,6 @@ abstract class RecursiveEvaluator(ctx: LeonContext, prog: Program, val bank: Eva
         case re => throw EvalError(typeErrorMsg(re, RealType))
       }
 
-
     case BVNot(ex) =>
       e(ex) match {
         case IntLiteral(i) => IntLiteral(~i)
@@ -393,7 +390,8 @@ abstract class RecursiveEvaluator(ctx: LeonContext, prog: Program, val bank: Eva
 
     case Times(l,r) =>
       (e(l), e(r)) match {
-        case (InfiniteIntegerLiteral(i1), InfiniteIntegerLiteral(i2)) => InfiniteIntegerLiteral(i1 * i2)
+        case (InfiniteIntegerLiteral(i1), InfiniteIntegerLiteral(i2)) =>
+          InfiniteIntegerLiteral(i1 * i2)
         case (le,re) => throw EvalError(typeErrorMsg(le, IntegerType))
       }
 
@@ -690,7 +688,7 @@ abstract class RecursiveEvaluator(ctx: LeonContext, prog: Program, val bank: Eva
                   }
                 }
 
-                val domainMap = quantifierDomains.groupBy(_._1).mapValues(_.map(_._2).flatten)
+                val domainMap = quantifierDomains.groupBy(_._1).mapValues(_.flatMap(_._2))
                 andJoin(domainMap.toSeq.map { case (id, dom) =>
                   orJoin(dom.toSeq.map { case (path, value) =>
                     // @nv: Equality with variable is ok, see [[leon.codegen.runtime.Monitor]]
