@@ -273,7 +273,7 @@ class StringRenderSuite extends LeonTestSuiteWithProgram with Matchers with Scal
       when.eval(expr) match {
         case EvaluationResults.Successful(value) => value shouldEqual StringLiteral(out)
         case EvaluationResults.EvaluatorError(msg) => fail(/*program + "\n" + */msg)
-        case EvaluationResults.RuntimeError(msg) => fail(/*program + "\n" + */"Runtime: " + msg)
+        case EvaluationResults.RuntimeError(msg, _) => fail(/*program + "\n" + */"Runtime: " + msg)
       }
     }
   }
@@ -286,7 +286,7 @@ class StringRenderSuite extends LeonTestSuiteWithProgram with Matchers with Scal
         case EvaluationResults.Successful(value) => val m = ExprOps.canBeHomomorphic(value._1, out)
           assert(m.nonEmpty, value._1 + " was not homomorphic with " + out)
         case EvaluationResults.EvaluatorError(msg) => fail(/*program + "\n" + */msg)
-        case EvaluationResults.RuntimeError(msg) => fail(/*program + "\n" + */"Runtime: " + msg)
+        case EvaluationResults.RuntimeError(msg, _) => fail(/*program + "\n" + */"Runtime: " + msg)
       }
     }
   }

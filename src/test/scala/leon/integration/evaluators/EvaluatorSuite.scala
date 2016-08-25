@@ -492,9 +492,9 @@ class EvaluatorSuite extends LeonTestSuiteWithProgram with ExpressionsDSL {
 
   def eval(e: Evaluator, toEval: Expr, env: Map[Identifier, Expr] = Map()): EvalDSL = {
     e.eval(toEval, env) match {
-      case EvaluationResults.Successful(res)     => Success(toEval, env, e, res)
-      case EvaluationResults.RuntimeError(err)   => Failed(toEval, env, e, err)
-      case EvaluationResults.EvaluatorError(err) => Failed(toEval, env, e, err)
+      case EvaluationResults.Successful(res)      => Success(toEval, env, e, res)
+      case EvaluationResults.RuntimeError(err, _) => Failed(toEval, env, e, err)
+      case EvaluationResults.EvaluatorError(err)  => Failed(toEval, env, e, err)
     }
   }
 }
