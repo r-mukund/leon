@@ -37,10 +37,10 @@ case class ExamplesBank(valids: Seq[Example], invalids: Seq[Example]) {
       val newInvalids = invalids map { ts =>
         val newIns = evaluator.eval(functionInvocation(fd, ts.ins)) match {
           case EvaluationResults.RuntimeError(_, cause) =>
-            (causeChain(cause).collect {
+            causeChain(cause).collect {
               case FunctionInvocation(TypedFunDef(`fd`, _), args) =>
                 args
-            }).lastOption
+            }.lastOption
           case _ =>
             None
         }

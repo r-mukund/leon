@@ -245,7 +245,7 @@ case object Focus extends PreprocessingRule("Focus") {
         val elsePc = pcSoFar
 
         if (existsFailing(elsePc.toClause, Map(), evaluator, true)) {
-          val newCase    = MatchCase(WildcardPattern(None), None, NoTree(scrut.getType))
+          val newCase = MatchCase(WildcardPattern(None), None, NoTree(scrut.getType))
 
           val qeb2 = qeb.filterIns(elsePc.toClause)
 
