@@ -21,6 +21,8 @@ extends GenericConverter with FunConverter with ClassConverter with ProgConverte
   override def convert(tree: Tree)(implicit funCtx: FunCtx): CAST.Tree = {
     implicit val pos = tree.getPos
 
+    debug(s"➡️  converting [${tree.getClass}] $tree ⬅️")
+
     tree match {
       /* ---------------------------------------------------------- Types ----- */
       case CharType    => CAST.Char
@@ -284,9 +286,6 @@ extends GenericConverter with FunConverter with ClassConverter with ProgConverte
 
         fs.bodies ~~ CAST.Call(id, args)
 
-
-      case _: StringConcat => CAST.unsupported("String manipulations")
-
       case m: MatchExpr =>
         val rewrite = ExprOps.matchToIfThenElse(m)
         convert(rewrite)
@@ -297,6 +296,8 @@ extends GenericConverter with FunConverter with ClassConverter with ProgConverte
       case e @ Error(typ, desc) =>
         debug(s"WARNING: `$e` is currently ignored")
         CAST.NoStmt
+
+      case _: StringConcat => CAST.unsupported("String manipulations")
 
       case unsupported =>
         CAST.unsupported(s"$unsupported (of type ${unsupported.getClass})")
