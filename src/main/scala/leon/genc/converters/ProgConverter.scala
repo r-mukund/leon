@@ -162,7 +162,7 @@ private[converters] trait ProgConverter {
             CAST.unsupported(s"$prefix Unexpected definition $x: ${x.getClass}")
         }
 
-      case cc: CaseClassDef => convertToType(cc)
+      case cd: ClassDef => convertToType(cd)
 
       case x =>
         implicit val pos = x.getPos

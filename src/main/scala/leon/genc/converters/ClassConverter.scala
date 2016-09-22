@@ -6,6 +6,7 @@ package converters
 
 import purescala.Definitions._
 import purescala.Expressions._
+import purescala.Types._
 // NOTE don't import CAST._ to decrease possible confusion between the two ASTs
 
 import utils.Position
@@ -95,6 +96,9 @@ private[converters] trait ClassConverter {
 
   // Convert a given class into a C structure; make some additional checks to
   // restrict the input class to the supported set of features.
+  def convertClass(ct: ClassType): CAST.Type = convertClass(ct.generateDef)
+
+  // Return NoType when given a generic class definition.
   def convertClass(cd: ClassDef): CAST.Type = {
     debug(s"Processing ${cd.id} with annotations: ${cd.annotations}")
 
@@ -108,17 +112,27 @@ private[converters] trait ClassConverter {
       CAST.NoType
     } else getTypedef(cd) getOrElse {
       if (cd.isCaseObject)       CAST.unsupported("Case Objects")
-      if (cd.tparams.length > 0) CAST.unsupported("Type Parameters")
       if (cd.methods.length > 0) CAST.unsupported("Methods") // TODO is it?
 
-      // Handle inheritance
-      if (cd.isCandidateForInheritance) registerClassHierarchy(cd)
-      else registerClass(cd)
+      if (cd.isGeneric) {
+        debug(s"Type Parameters: ${cd.tparams} => cannot convert ${cd.id} now")
+        CAST.NoType
+      } else {
+        // Handle inheritance
+        if (cd.isCandidateForInheritance) registerClassHierarchy(cd)
+        else registerClass(cd)
+      }
     }
   }
 
-  // Instanciate a given case class, taking into account the inheritance model
-  def instanciateCaseClass(typ: CaseClassDef, args1: Seq[Expr])(implicit funCtx: FunCtx): CAST.Stmt = {
+  // Instanciate a given case class, taking into account the inheritance model.
+  def instanciateCaseClass(cct: CaseClassType, args: Seq[Expr])
+                          (implicit funCtx: FunCtx): CAST.Stmt = cct.generateDef match {
+    case ccd: CaseClassDef => instanciateCaseClass(ccd, args)
+    case t => internalError(s"Expected CaseClassDef but got $t: ${t.getClass}")
+  }
+
+  private def instanciateCaseClass(typ: CaseClassDef, args1: Seq[Expr])(implicit funCtx: FunCtx): CAST.Stmt = {
     def details(struct: CAST.Struct): (Seq[CAST.Stmt], CAST.StructInit) = {
       val types = struct.fields map { _.typ }
       val argsFs = convertAndNormaliseExecution(args1, types)

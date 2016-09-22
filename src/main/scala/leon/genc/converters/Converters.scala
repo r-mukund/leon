@@ -46,9 +46,12 @@ extends GenericConverter with FunConverter with ClassConverter with ProgConverte
           tuple
         }
 
+      // If we only have access to the class definition (with potentially some type parameters)
+      // then we translate the type if we can (i.e. no type parameters) and fail otherwise.
       case cd: ClassDef => convertClass(cd)
-      case CaseClassType(cd, _) => convertClass(cd)
-      case AbstractClassType(cd, _) => convertClass(cd)
+
+      // When the concreate type parameters are available, we can for sure do the translation.
+      case ct: ClassType => convertClass(ct)
 
 
       /* ------------------------------------------------------- Literals ----- */
@@ -203,9 +206,7 @@ extends GenericConverter with FunConverter with ClassConverter with ProgConverte
             fs.bodies ~~ assign
         }
 
-      case CaseClass(typ, args) =>
-        debug(s"CaseClass($typ, $args)")
-        instanciateCaseClass(typ.classDef, args)
+      case CaseClass(typ, args) => instanciateCaseClass(typ, args)
 
       case CaseClassSelector(_, x1, fieldId) =>
         val struct = convertToStruct(x1.getType)
