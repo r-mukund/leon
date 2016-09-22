@@ -11,10 +11,8 @@ import purescala.Types._
 
 import utils.Position
 
-import ExtraOps._
-
 private[converters] trait FunConverter {
-  this: Converters with TypeAnalyser with Builder with MiniReporter =>
+  this: Converters with TypeAnalyser with Builder with ExtraOps with MiniReporter =>
 
   // Extra information about inner functions' context
   // See classes VarInfo and FunCtx and functions convertToFun and

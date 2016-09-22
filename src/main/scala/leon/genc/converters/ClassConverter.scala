@@ -10,10 +10,8 @@ import purescala.Expressions._
 
 import utils.Position
 
-import ExtraOps._
-
 private[converters] trait ClassConverter {
-  this: Converters with Normaliser with Builder with MiniReporter =>
+  this: Converters with Normaliser with Builder with ExtraOps with MiniReporter =>
 
   // This registery keeps track of the "top" C structure that represents the class hierarchy.
   private var classRegistery = Map[CaseClassDef, CAST.Struct]()

@@ -7,7 +7,8 @@ import purescala.Definitions._
 import purescala.Types._
 // NOTE don't import CAST._ to decrease possible confusion between the two ASTs
 
-private[genc] object ExtraOps {
+private[genc] trait ExtraOps {
+  this: MiniReporter =>
 
   // Extra tools on FunDef, especially for annotations
   implicit class FunDefOps(val fd: FunDef) {

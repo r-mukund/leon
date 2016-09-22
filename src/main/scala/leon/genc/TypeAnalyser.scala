@@ -9,8 +9,6 @@ import purescala.Types._
 
 import utils.Position
 
-import ExtraOps._
-
 private[genc] trait TypeAnalyser {
   this: CConverter =>
 

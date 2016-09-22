@@ -12,8 +12,6 @@ import purescala.Types._
 import xlang.Expressions._
 // NOTE don't import CAST._ to decrease possible confusion between the two ASTs
 
-import ExtraOps._
-
 private[genc] trait Converters
 extends GenericConverter with FunConverter with ClassConverter with ProgConverter {
   this: CConverter =>
