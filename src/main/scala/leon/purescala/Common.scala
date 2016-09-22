@@ -63,9 +63,15 @@ object Common {
     def toVariable: Variable = Variable(this)
 
     def freshen: Identifier = FreshIdentifier(name, tpe, alwaysShowUniqueID).copiedFrom(this)
-    
+
     def duplicate(name: String = name, tpe: TypeTree = tpe, alwaysShowUniqueID: Boolean = alwaysShowUniqueID) = {
       FreshIdentifier(name, tpe, alwaysShowUniqueID)
+    }
+
+    // This is a quick hack for GenC: the global id needs to be the same.
+    // See leon.genc.ExtraOps.ClassDefOps.generateDef
+    /*private[genc]*/ def hackDuplicate(name: String = name, tpe: TypeTree = tpe, alwaysShowUniqueID: Boolean = alwaysShowUniqueID) = {
+      new Identifier(name, globalId, id, tpe, alwaysShowUniqueID)
     }
 
     override def compare(that: Identifier): Int = {
