@@ -275,8 +275,8 @@ extends GenericConverter with FunConverter with ClassConverter with ProgConverte
         val rewrite = ExprOps.matchToIfThenElse(m)
         convert(rewrite)
 
-      case IsInstanceOf(expr, ct) => convertIsInstanceOf(expr, ct.classDef)
-      case AsInstanceOf(expr, ct) => convertAsInstanceOf(expr, ct.classDef)
+      case IsInstanceOf(expr, ct) => convertIsInstanceOf(expr, ct)
+      case AsInstanceOf(expr, ct) => convertAsInstanceOf(expr, ct)
 
       case e @ Error(typ, desc) =>
         debug(s"WARNING: `$e` is currently ignored")

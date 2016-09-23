@@ -202,14 +202,14 @@ private[converters] trait ClassConverter {
     }
   }
 
-  // Convert the expr.isInstanceOf[cd] for types involving inheritance into the proper check
+  // Convert the expr.isInstanceOf[ct] for types involving inheritance into the proper check
   // of the tag value.
-  def convertIsInstanceOf(expr: Expr, cd: ClassDef)(implicit pos: Position, funCtx: FunCtx): CAST.Stmt = {
-    checksForInstanceOf(cd)
+  def convertIsInstanceOf(expr: Expr, ct: ClassType)(implicit pos: Position, funCtx: FunCtx): CAST.Stmt = {
+    checksForInstanceOf(ct.classDef)
 
     val exprF = convertAndFlatten(expr)
 
-    val dataStruct = getStruct(convertToId(cd.id)).get // if None, then internalError anyway
+    val dataStruct = getStruct(generateClassId(ct)).get // if None, then internalError anyway
     val tag = CAST.Enum.tagForType(dataStruct)
 
     val tagField = CAST.AccessField(exprF.value, CAST.Id("tag"))
@@ -217,14 +217,14 @@ private[converters] trait ClassConverter {
     exprF.body ~~ buildBinOp(tagField, "==", tag)
   }
 
-  // The conversion of expr.asInstanceOf[cd] is rather straighforward: we simply access the proper value
+  // The conversion of expr.asInstanceOf[ct] is rather straighforward: we simply access the proper value
   // from the instance's union.
-  def convertAsInstanceOf(expr: Expr, cd: ClassDef)(implicit pos: Position, funCtx: FunCtx): CAST.Stmt = {
-    checksForInstanceOf(cd)
+  def convertAsInstanceOf(expr: Expr, ct: ClassType)(implicit pos: Position, funCtx: FunCtx): CAST.Stmt = {
+    checksForInstanceOf(ct.classDef)
 
     val exprF = convertAndFlatten(expr)
 
-    val dataStruct = getStruct(convertToId(cd.id)).get // if None, then internalError anyway
+    val dataStruct = getStruct(generateClassId(ct)).get // if None, then internalError anyway
     val valuePath = CAST.Union.valuePathForType(dataStruct)
 
     val valueField = CAST.AccessField(exprF.value, valuePath)
