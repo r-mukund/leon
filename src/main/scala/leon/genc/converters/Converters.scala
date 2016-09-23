@@ -267,23 +267,7 @@ extends GenericConverter with FunConverter with ClassConverter with ProgConverte
           CAST.While(CAST.True, ifelse ~ body)
         }
 
-      case FunctionInvocation(tfd @ TypedFunDef(fd, _), stdArgs) =>
-        // Make sure fd is not annotated with cCode.drop
-        if (fd.annotations contains "cCode.drop") {
-          CAST.unsupported(s"Calling a function annoted with @cCode.drop")
-        }
-
-        // Make sure the called function will be defined at some point
-        collectIfNeeded(fd)
-
-        // In addition to regular function parameters, add the callee's extra parameters
-        val id        = convertToId(fd.id)
-        val types     = tfd.params map { p => convertToType(p.getType) }
-        val fs        = convertAndNormaliseExecution(stdArgs, types)
-        val extraArgs = funCtx.toArgs(getFunExtraArgs(id))
-        val args      = extraArgs ++ fs.values
-
-        fs.bodies ~~ CAST.Call(id, args)
+      case FunctionInvocation(tfd, args) => convertFunInvoc(tfd, args)
 
       case m: MatchExpr =>
         val rewrite = ExprOps.matchToIfThenElse(m)

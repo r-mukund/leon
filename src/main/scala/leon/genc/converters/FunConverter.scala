@@ -6,6 +6,7 @@ package converters
 
 import purescala.Common._
 import purescala.Definitions._
+import purescala.Expressions._
 import purescala.Types._
 // NOTE don't import CAST._ to decrease possible confusion between the two ASTs
 
@@ -14,7 +15,7 @@ import utils.Position
 import ExtraOps._
 
 private[converters] trait FunConverter {
-  this: Converters with TypeAnalyser with Builder with MiniReporter =>
+  this: Converters with TypeAnalyser with Builder with Normaliser with MiniReporter =>
 
   // Extra information about inner functions' context
   // See classes VarInfo and FunCtx and functions convertToFun and
@@ -77,6 +78,27 @@ private[converters] trait FunConverter {
     // Check whether this context is empy or not
     // i.e. if the function being extracted is a top level one
     def isEmpty = vars.isEmpty
+  }
+
+  // Convert the function invocation, and the function itself if it's required (e.g. with generics)
+  def convertFunInvoc(tfd: TypedFunDef, args0: Seq[Expr])(implicit funCtx: FunCtx): CAST.Stmt = {
+    implicit val pos = tfd.getPos
+
+    // Make sure fd is not annotated with cCode.drop
+    if (tfd.fd.isDropped)
+      CAST.unsupported(s"Calling a function annoted with @cCode.drop")
+
+    // Make sure the called function will be defined at some point
+    collectIfNeeded(tfd.fd)
+
+    // In addition to regular function parameters, add the callee's extra parameters
+    val id        = convertToId(tfd.id)
+    val types     = tfd.params map { p => convertToType(p.getType) }
+    val fs        = convertAndNormaliseExecution(args0, types)
+    val extraArgs = funCtx.toArgs(getFunExtraArgs(id))
+    val args      = extraArgs ++ fs.values
+
+    fs.bodies ~~ CAST.Call(id, args)
   }
 
   // Extract inner functions too
