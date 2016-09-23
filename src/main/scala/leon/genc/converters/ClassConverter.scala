@@ -96,10 +96,8 @@ private[converters] trait ClassConverter {
     }
   }
 
-  // Convert a given class into a C structure; make some additional checks to
-  // restrict the input class to the supported set of features.
-  // NOTE return NoType when given a generic class definition.
-  def convertClass(cd: ClassDef): CAST.Type = {
+  // Common core of the two convertClass functions; handle some annotation checking.
+  private def convertClassCore(cd: ClassDef): Option[CAST.Type] = {
     debug(s"Processing ${cd.id} with annotations: ${cd.annotations}")
 
     implicit val pos = cd.getPos
@@ -107,26 +105,34 @@ private[converters] trait ClassConverter {
     if (cd.isManuallyTyped && cd.isDropped)
       CAST.unsupported(s"${cd.id} cannot be both dropped and manually defined")
 
-    if (cd.isDropped) {
-      debug(s"${cd.id} is dropped")
-      CAST.NoType
-    } else getTypedef(cd) getOrElse {
+
+    if (!cd.isManuallyTyped) {
       if (cd.isCaseObject)       CAST.unsupported("Case Objects")
       if (cd.methods.length > 0) CAST.unsupported("Methods") // TODO is it?
+    }
 
-      if (cd.isGeneric) {
-        debug(s"${cd.id} is generic => cannot convert it now, only when instantiated with concreate type parameters")
-        CAST.NoType
-      } else {
-        // Handle inheritance
-        if (cd.isCandidateForInheritance) registerClassHierarchy(cd.typed)
-        else registerClass(cd.typed)
-      }
+    if (cd.isDropped) {
+      debug(s"${cd.id} is dropped")
+      Some(CAST.NoType)
+    } else None
+  }
+
+  // Convert a given class into a C structure; make some additional checks to
+  // restrict the input class to the supported set of features.
+  // NOTE return NoType when given a generic class definition.
+  def convertClass(cd: ClassDef): CAST.Type = convertClassCore(cd) orElse getTypedef(cd) getOrElse {
+    if (cd.isGeneric) {
+      debug(s"${cd.id} is generic => cannot convert it now, only when instantiated with concreate type parameters")
+      CAST.NoType
+    } else {
+      // Handle inheritance
+      if (cd.isCandidateForInheritance) registerClassHierarchy(cd.typed)
+      else registerClass(cd.typed)
     }
   }
 
   // Relatively similar to convertClass but not suggering from generics
-  def convertClass(ct: ClassType): CAST.Type = {
+  def convertClass(ct: ClassType): CAST.Type = convertClassCore(ct.classDef) getOrElse {
     ???
   }
 
