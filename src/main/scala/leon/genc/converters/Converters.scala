@@ -51,7 +51,7 @@ extends GenericConverter with FunConverter with ClassConverter with ProgConverte
       case cd: ClassDef => convertClass(cd)
 
       // When the concreate type parameters are available, we can for sure do the translation.
-      case ct: ClassType => convertClass(ct.classDef) // FIXME use ct
+      case ct: ClassType => convertClass(ct)
 
 
       /* ------------------------------------------------------- Literals ----- */
@@ -206,7 +206,7 @@ extends GenericConverter with FunConverter with ClassConverter with ProgConverte
             fs.bodies ~~ assign
         }
 
-      case CaseClass(typ, args) => instanciateCaseClass(typ.classDef, args) // FIXME use typ
+      case CaseClass(typ, args) => instantiateCaseClass(typ, args)
 
       case CaseClassSelector(_, x1, fieldId) =>
         val struct = convertToStruct(x1.getType)

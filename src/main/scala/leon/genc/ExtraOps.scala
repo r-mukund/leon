@@ -54,10 +54,6 @@ private[genc] object ExtraOps {
 
     case class ManualType(alias: String, include: String)
 
-    def getTopParent: ClassDef = {
-      cd.parent map { case AbstractClassType(acd, _) => acd.getTopParent } getOrElse { cd }
-    }
-
     def isCandidateForInheritance = cd.isAbstract || cd.hasParent
 
     def isGeneric = cd.tparams.length > 0
@@ -65,6 +61,11 @@ private[genc] object ExtraOps {
     private def hasAnnotation(annot: String) = cd.annotations contains annot
     private val manualTypeAnnotation = "cCode.typedef"
     private val droppedAnnotation = "cCode.drop"
+  }
+
+  // Extra tools on ClassType, expecially for inheritance
+  implicit class ClassTypeOps(val ct: ClassType) {
+    def getTopParent: ClassType = ct.parent map { _.getTopParent } getOrElse { ct }
   }
 }
 

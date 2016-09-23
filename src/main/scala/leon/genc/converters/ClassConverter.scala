@@ -6,6 +6,7 @@ package converters
 
 import purescala.Definitions._
 import purescala.Expressions._
+import purescala.Types._
 // NOTE don't import CAST._ to decrease possible confusion between the two ASTs
 
 import utils.Position
@@ -16,10 +17,10 @@ private[converters] trait ClassConverter {
   this: Converters with Normaliser with Builder with MiniReporter =>
 
   // This registery keeps track of the "top" C structure that represents the class hierarchy.
-  private var classRegistery = Map[CaseClassDef, CAST.Struct]()
+  private var classRegistery = Map[CaseClassType, CAST.Struct]()
 
   // Add the given set of ClassDef into the registery
-  private def registerFullHierarchy(top: CAST.Struct, set: Seq[CaseClassDef]) {
+  private def registerFullHierarchy(top: CAST.Struct, set: Seq[CaseClassType]) {
     debug(s"Registering hierarchy with $top for ${set map { _.id }}")
 
     for (clazz <- set)
@@ -28,7 +29,7 @@ private[converters] trait ClassConverter {
 
   // Find the matching "top" C struct for a given class definition. If none exists,
   // the definition needs to be processed through convertClass.
-  private def getTopStruct(cd: CaseClassDef): Option[CAST.Struct] = classRegistery.get(cd)
+  private def getTopStruct(ct: CaseClassType): Option[CAST.Struct] = classRegistery.get(ct)
 
   // Register a hierarchy of class.
   //
@@ -40,14 +41,14 @@ private[converters] trait ClassConverter {
   // - Register the enum, union & the structs to ProgConverter
   // - Register the class hierarchy as well
   // - Return the struct representing this class hierarchy
-  private def registerClassHierarchy(cd: ClassDef): CAST.Type = {
-    val top = cd.getTopParent
+  private def registerClassHierarchy(ct: ClassType): CAST.Type = {
+    val top = ct.getTopParent
     val id = convertToId(top.id)
 
     getType(id) getOrElse {
       val children = top.knownCCDescendants
 
-      debug(s"Registrering class hierarchy of ${cd.id}")
+      debug(s"Registrering class hierarchy of ${ct.id}")
       debug(s"Top = ${top.id}")
       debug(s"Children = ${ children map { _.id } mkString ", " }")
 
@@ -78,16 +79,16 @@ private[converters] trait ClassConverter {
 
   // Register a given class (if needed) after converting its data structure to a C one.
   // NOTE it is okay to call this function more than once on the same class definition.
-  private def registerClass(cd: ClassDef): CAST.Type = {
+  private def registerClass(ct: ClassType): CAST.Type = {
     implicit val ctx = FunCtx.empty
 
-    val id = convertToId(cd.id)
+    val id = convertToId(ct.id)
 
     val typ = getType(id)
     typ foreach { t => debug(s"$t is already defined") }
 
     typ getOrElse {
-      val fields = cd.fields map convertToVar
+      val fields = ct.fields map convertToVar
       val typ = CAST.Struct(id, fields)
 
       registerType(typ)
@@ -118,18 +119,23 @@ private[converters] trait ClassConverter {
         CAST.NoType
       } else {
         // Handle inheritance
-        if (cd.isCandidateForInheritance) registerClassHierarchy(cd)
-        else registerClass(cd)
+        if (cd.isCandidateForInheritance) registerClassHierarchy(cd.typed)
+        else registerClass(cd.typed)
       }
     }
   }
 
-  // Instanciate a given case class, taking into account the inheritance model
-  def instanciateCaseClass(typ: CaseClassDef, args1: Seq[Expr])(implicit funCtx: FunCtx): CAST.Stmt = {
+  // Relatively similar to convertClass but not suggering from generics
+  def convertClass(ct: ClassType): CAST.Type = {
+    ???
+  }
+
+  // Instantiate a given case class, taking into account the inheritance model
+  def instantiateCaseClass(typ: CaseClassType, args1: Seq[Expr])(implicit funCtx: FunCtx): CAST.Stmt = {
     def details(struct: CAST.Struct): (Seq[CAST.Stmt], CAST.StructInit) = {
       val types = struct.fields map { _.typ }
       val argsFs = convertAndNormaliseExecution(args1, types)
-      val fieldsIds = typ.fieldsIds map convertToId
+      val fieldsIds = typ.fields map { _.id } map convertToId
       val args = fieldsIds zip argsFs.values
 
       (argsFs.bodies, CAST.StructInit(args, struct))
