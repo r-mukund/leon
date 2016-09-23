@@ -128,16 +128,15 @@ private[converters] trait ClassConverter {
       if (cd.methods.length > 0) CAST.unsupported("Methods") // TODO is it?
     }
 
-    if (cd.isDropped) {
-      debug(s"${cd.id} is dropped")
-      Some(CAST.NoType)
-    } else None
+    if (cd.isDropped) Some(CAST.NoType)
+    else if (!cd.isGeneric) getTypedef(cd)
+    else None
   }
 
   // Convert a given class into a C structure; make some additional checks to
   // restrict the input class to the supported set of features.
   // NOTE return NoType when given a generic class definition.
-  def convertClass(cd: ClassDef)(implicit funCtx: FunCtx): CAST.Type = convertClassCore(cd) orElse getTypedef(cd) getOrElse {
+  def convertClass(cd: ClassDef)(implicit funCtx: FunCtx): CAST.Type = convertClassCore(cd) getOrElse {
     if (cd.isGeneric) {
       debug(s"${cd.id} is generic => cannot convert it now, only when instantiated with concreate type parameters")
       CAST.NoType
