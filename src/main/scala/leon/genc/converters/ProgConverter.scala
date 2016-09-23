@@ -9,7 +9,7 @@ import purescala.Definitions._
 // NOTE don't import CAST._ to decrease possible confusion between the two ASTs
 
 private[converters] trait ProgConverter {
-  this: Converters with ExtraOps with MiniReporter =>
+  this: Converters with MiniReporter =>
 
   val prog: Program // the program to be converted
   // This is needed as a "global" for the converters mechanism
@@ -46,6 +46,8 @@ private[converters] trait ProgConverter {
 
   // Return the manual C typedef contained in the class annotation, if any.
   def getTypedef(cd: ClassDef): Option[CAST.Typedef] = {
+    import ExtraOps._
+
     if (cd.isManuallyTyped) {
       val manualType = cd.getManualType
       val typedef = CAST.Typedef(convertToId(cd.id), CAST.Id(manualType.alias))
