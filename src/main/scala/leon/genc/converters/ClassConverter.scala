@@ -97,6 +97,7 @@ private[converters] trait ClassConverter {
 
   // Convert a given class into a C structure; make some additional checks to
   // restrict the input class to the supported set of features.
+  // NOTE return NoType when given a generic class definition.
   def convertClass(cd: ClassDef): CAST.Type = {
     debug(s"Processing ${cd.id} with annotations: ${cd.annotations}")
 
@@ -110,12 +111,16 @@ private[converters] trait ClassConverter {
       CAST.NoType
     } else getTypedef(cd) getOrElse {
       if (cd.isCaseObject)       CAST.unsupported("Case Objects")
-      if (cd.tparams.length > 0) CAST.unsupported("Type Parameters")
       if (cd.methods.length > 0) CAST.unsupported("Methods") // TODO is it?
 
-      // Handle inheritance
-      if (cd.isCandidateForInheritance) registerClassHierarchy(cd)
-      else registerClass(cd)
+      if (cd.isGeneric) {
+        debug(s"${cd.id} is generic => cannot convert it now, only when instantiated with concreate type parameters")
+        CAST.NoType
+      } else {
+        // Handle inheritance
+        if (cd.isCandidateForInheritance) registerClassHierarchy(cd)
+        else registerClass(cd)
+      }
     }
   }
 

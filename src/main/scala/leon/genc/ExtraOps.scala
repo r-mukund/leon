@@ -37,7 +37,7 @@ private[genc] object ExtraOps {
     private val manualDefAnnotation = "cCode.function"
   }
 
-  // Extra tools on ClassDef, especially for annotations & inheritance
+  // Extra tools on ClassDef, especially for annotations, inheritance & generics
   implicit class ClassDefOps(val cd: ClassDef) {
     def isManuallyTyped = hasAnnotation(manualTypeAnnotation)
     def isDropped       = hasAnnotation(droppedAnnotation)
@@ -59,6 +59,8 @@ private[genc] object ExtraOps {
     }
 
     def isCandidateForInheritance = cd.isAbstract || cd.hasParent
+
+    def isGeneric = cd.tparams.length > 0
 
     private def hasAnnotation(annot: String) = cd.annotations contains annot
     private val manualTypeAnnotation = "cCode.typedef"
