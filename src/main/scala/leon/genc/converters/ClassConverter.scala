@@ -105,6 +105,8 @@ private[converters] trait ClassConverter {
     if (cd.isManuallyTyped && cd.isDropped)
       CAST.unsupported(s"${cd.id} cannot be both dropped and manually defined")
 
+    if (cd.isGeneric && cd.isManuallyTyped)
+      CAST.unsupported(s"${cd.id} cannot be both a generic type and manually defined")
 
     if (!cd.isManuallyTyped) {
       if (cd.isCaseObject)       CAST.unsupported("Case Objects")
