@@ -29,7 +29,14 @@ private[converters] trait ClassConverter {
 
   // Find the matching "top" C struct for a given class definition. If none exists,
   // the definition needs to be processed through convertClass.
-  private def getTopStruct(cct: CaseClassType): Option[CAST.Struct] = classRegistery.get(cct)
+  private def getTopStruct(cct: CaseClassType): Option[CAST.Struct] = {
+    val structOpt = classRegistery.get(cct)
+
+    if (cct.classDef.isCandidateForInheritance && structOpt.isEmpty)
+      internalError(s"${cct.id} was not processed so far!")
+
+    structOpt
+  }
 
   // Make the id specific to the current type specialisation and no longer generic
   private def generateClassId(ct: ClassType)(implicit funCtx: FunCtx): CAST.Id = {
