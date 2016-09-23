@@ -29,7 +29,16 @@ private[converters] trait ClassConverter {
 
   // Find the matching "top" C struct for a given class definition. If none exists,
   // the definition needs to be processed through convertClass.
-  private def getTopStruct(ct: CaseClassType): Option[CAST.Struct] = classRegistery.get(ct)
+  private def getTopStruct(cct: CaseClassType): Option[CAST.Struct] = classRegistery.get(cct)
+
+  // Make the id specific to the current type specialisation and no longer generic
+  private def generateClassId(ct: ClassType)(implicit funCtx: FunCtx): CAST.Id = {
+    if (ct.classDef.isGeneric) {
+      val baseId = ct.id.uniqueName
+      val paramId = ct.tps map { t => convertToType(t).name } mkString (sep = "_")
+      CAST.Id(baseId + "_" + paramId)
+    } else convertToId(ct.id)
+  }
 
   // Register a hierarchy of class.
   //
@@ -43,7 +52,7 @@ private[converters] trait ClassConverter {
   // - Return the struct representing this class hierarchy
   private def registerClassHierarchy(ct: ClassType)(implicit funCtx: FunCtx): CAST.Type = {
     val top = ct.getTopParent
-    val id = convertToId(top.id)
+    val id = generateClassId(top)
 
     getType(id) getOrElse {
       val children = top.knownCCDescendants
@@ -88,7 +97,7 @@ private[converters] trait ClassConverter {
   // Register a given class (if needed) after converting its data structure to a C one.
   // NOTE it is okay to call this function more than once on the same class definition.
   private def registerClass(ct: ClassType)(implicit funCtx: FunCtx): CAST.Type = {
-    val id = convertToId(ct.id)
+    val id = generateClassId(ct)
 
     val typ = getType(id)
     typ foreach { t => debug(s"$t is already defined") }
@@ -173,7 +182,7 @@ private[converters] trait ClassConverter {
 
       debug(s"Instantiating ${cct.id} with arguments $args1.")
 
-      val dataStruct = getStruct(convertToId(cct.id)).get // if None, then internalError anyway
+      val dataStruct = getStruct(generateClassId(cct)).get // if None, then internalError anyway
       val tag = CAST.Enum.tagForType(dataStruct)
       val value = CAST.Union.valuePathForType(dataStruct)
 
