@@ -132,8 +132,10 @@ private[converters] trait ClassConverter {
   }
 
   // Relatively similar to convertClass but not suggering from generics
-  def convertClass(ct: ClassType): CAST.Type = convertClassCore(ct.classDef) getOrElse {
-    ???
+  def convertClass(ct: ClassType)(implicit funCtx: FunCtx): CAST.Type = convertClassCore(ct.classDef) getOrElse {
+    // Handle inheritance
+    if (ct.classDef.isCandidateForInheritance) registerClassHierarchy(ct)
+    else registerClass(ct)
   }
 
   // Instantiate a given case class, taking into account the inheritance model
