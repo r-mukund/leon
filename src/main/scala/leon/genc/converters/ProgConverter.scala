@@ -8,13 +8,14 @@ import purescala.Common._
 import purescala.Definitions._
 // NOTE don't import CAST._ to decrease possible confusion between the two ASTs
 
+import ExtraOps._
+
 private[converters] trait ProgConverter {
   this: Converters with MiniReporter =>
 
   val prog: Program // the program to be converted
-  // This is needed as a "global" for the converters mechanism
-  // to work properly we punctually need to fetch some specific
-  // data from this program.
+  // This is needed as a "global" for the converters mechanism to work properly because
+  // we punctually need to fetch some specific data from this program.
 
   // Initially, only the main unit is processed but if it has dependencies in other
   // units, they will be processed as well (and their dependencies as well). However,
@@ -99,16 +100,25 @@ private[converters] trait ProgConverter {
     }
   }
 
+  def markUnitOfForProcessing(d: Definition) {
+    val uOpt = prog.units find { _ containsDef d }
+    val u = uOpt getOrElse { internalError(s"Function ${d.id} was defined nowhere!") }
+
+    debug(s"\t${d.id} is define in unit ${u.id}")
+
+    markUnitForProcessing(u)
+  }
+
+  // Special case for generics: always mark the unit containing the given definition for processing
+  def collectIfNeeded(tfd: TypedFunDef) {
+    if (!tfd.fd.isGeneric) collectIfNeeded(tfd.fd)
+    else markUnitOfForProcessing(tfd.fd)
+  }
+
   def collectIfNeeded(fd: FunDef) {
-    val funName = fd.id.uniqueName
-    if (!functions.find{ _.id.name == funName }.isDefined) {
-      val uOpt = prog.units find { _ containsDef fd }
-      val u = uOpt getOrElse { internalError(s"Function $funName was defined nowhere!") }
-
-      debug(s"\t$funName is define in unit ${u.id}")
-
-      markUnitForProcessing(u)
-    }
+    val id = convertToId(fd.id)
+    if (!functions.find{ _.id == id }.isDefined)
+      markUnitOfForProcessing(fd)
   }
 
   def convertToProg: CAST.Prog = {

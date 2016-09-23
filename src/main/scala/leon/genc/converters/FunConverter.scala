@@ -84,12 +84,12 @@ private[converters] trait FunConverter {
   def convertFunInvoc(tfd: TypedFunDef, args0: Seq[Expr])(implicit funCtx: FunCtx): CAST.Stmt = {
     implicit val pos = tfd.getPos
 
-    // Make sure fd is not annotated with cCode.drop
+    // Make sure the fd is not annotated with cCode.drop
     if (tfd.fd.isDropped)
       CAST.unsupported(s"Calling a function annoted with @cCode.drop")
 
-    // Make sure the called function will be defined at some point
-    collectIfNeeded(tfd.fd)
+    // Make sure the called function and its unit get processed at some point
+    collectIfNeeded(tfd)
 
     // In addition to regular function parameters, add the callee's extra parameters
     val id        = convertToId(tfd.id)
