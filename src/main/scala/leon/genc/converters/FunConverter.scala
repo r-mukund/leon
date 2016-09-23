@@ -91,6 +91,9 @@ private[converters] trait FunConverter {
     if (fd.isManuallyDefined && fd.isDropped)
       CAST.unsupported("Function cannot be dropped and manually implemented at the same time")
 
+    if (fd.isGeneric && fd.isManuallyDefined)
+      CAST.unsupported(s"${fd.id} cannot be both a generic function and manually defined")
+
     if (fd.isDropped) None
     else {
       // Special case: the `main(args)` function is actually just a proxy for `_main()`

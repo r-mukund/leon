@@ -33,6 +33,8 @@ private[genc] object ExtraOps {
 
     case class ManualDef(code: String, includes: Seq[String])
 
+    def isGeneric = fd.tparams.length > 0
+
     private def hasAnnotation(annot: String) = fd.annotations contains annot
     private val manualDefAnnotation = "cCode.function"
   }
