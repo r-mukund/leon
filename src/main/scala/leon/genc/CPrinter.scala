@@ -178,15 +178,7 @@ class CPrinter(val sb: StringBuffer = new StringBuffer) {
     case Call(id, args)             => c"$id($args)"
 
     case StructInit(args, struct) =>
-      c"(${struct.id}) { "
-      for ((id, stmt) <- args.init) {
-        c".$id = $stmt, "
-      }
-      if (!args.isEmpty) {
-        val (id, stmt) = args.last
-        c".$id = $stmt "
-      }
-      c"}"
+      c"(${struct.id}) { ${nary(args map { case (id, stmt) => FieldInit(id, stmt) }, sep = ", ")} }"
 
     /* --------------------------------------------------------- Error  ----- */
     case tree => sys.error(s"CPrinter: <<$tree>> was not handled properly")
@@ -238,6 +230,9 @@ class CPrinter(val sb: StringBuffer = new StringBuffer) {
     case UnionValueDef(typ, id) =>
       c"$typ $id;"
 
+    case FieldInit(id, stmt) =>
+      c".$id = $stmt"
+
     case NewLine =>
       c"""|
           |"""
@@ -260,6 +255,7 @@ class CPrinter(val sb: StringBuffer = new StringBuffer) {
   private case class StructDef(s: Struct) extends WrapperTree
   private case class UnionDef(u: Union) extends WrapperTree
   private case class UnionValueDef(typ: Type, id: Id) extends WrapperTree
+  private case class FieldInit(id: Id, stmt: Stmt) extends WrapperTree
   private case object NewLine extends WrapperTree
 }
 
