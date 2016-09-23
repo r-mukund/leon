@@ -133,6 +133,9 @@ private[converters] trait FunConverter {
     if (!fd.isExtern)
       CAST.unsupported("It is expected for `main(args)` to be extern")
 
+    if (fd.isGeneric)
+      CAST.unsupported("The main function should not be generic")
+
     // Make sure there is a `_main()` function and has the proper signature
     val uOpt = prog.units find { _ containsDef fd }
     val u = uOpt getOrElse { internalError(s"FunDef comes from an unexpected place") }
@@ -143,6 +146,9 @@ private[converters] trait FunConverter {
     val _mainFd = _mainFdOpt.get
     if (_mainFd.params.size > 0)
       CAST.unsupported("_main() should not have parameters")
+
+    if (_mainFd.isGeneric)
+      CAST.unsupported("_main() should not be generic")
 
     // TODO Check for main overload and reject the program in such case
 
