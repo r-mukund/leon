@@ -105,7 +105,7 @@ private[converters] trait FunConverter {
       debug(s"Instantiating ${tfd.id} with ${tfd.tps}")
       // TODO in order to handle nested generic function, the correct FunCtx should be
       //      rebuild somehow. For now, we just don't do it.
-      val fun = convertTypedFunDef(tfd)(FunCtx.empty, tfd.getPos)
+      val fun = convertTypedFunDef(tfd)(FunCtx.empty)
       //                                ^^^^^^^^^^^^
       // Because we are not at the definition location of the function, but at the call site,
       // we cannot use `funCtx` here.
@@ -153,7 +153,9 @@ private[converters] trait FunConverter {
     }
   }
 
-  private def generateMain(fd: FunDef)(implicit funCtx: FunCtx, pos: Position): CAST.Fun = {
+  private def generateMain(fd: FunDef)(implicit funCtx: FunCtx): CAST.Fun = {
+    implicit val pos = fd.getPos
+
     if (!fd.isExtern)
       CAST.unsupported("It is expected for `main(args)` to be extern")
 
@@ -185,7 +187,9 @@ private[converters] trait FunConverter {
     fun
   }
 
-  private def convertTypedFunDef(tfd: TypedFunDef)(implicit funCtx: FunCtx, pos: Position): CAST.Fun = {
+  private def convertTypedFunDef(tfd: TypedFunDef)(implicit funCtx: FunCtx): CAST.Fun = {
+    implicit val pos = tfd.getPos
+
     // Forbid return of array as they are allocated on the stack
     if (containsArrayType(tfd.returnType))
       CAST.unsupported("Returning arrays")
