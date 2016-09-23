@@ -23,6 +23,8 @@ extends GenericConverter with FunConverter with ClassConverter with ProgConverte
 
     tree match {
       /* ---------------------------------------------------------- Types ----- */
+      case Untyped => CAST.NoType
+
       case CharType    => CAST.Char
       case Int32Type   => CAST.Int32
       case BooleanType => CAST.Bool

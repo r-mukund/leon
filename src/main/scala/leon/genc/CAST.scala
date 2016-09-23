@@ -30,7 +30,7 @@ object CAST { // C Abstract Syntax Tree
 
     def name: String = rep // usefull when the type name should be used as a variable identifier
   }
-  case object NoType extends Type("???") // Used in place of a dropped type
+  case object NoType extends Type("_untyped_") // Used in place of a dropped type
 
   /* Type Modifiers */
   case class Const(typ: Type) extends Type(s"$typ const") {
