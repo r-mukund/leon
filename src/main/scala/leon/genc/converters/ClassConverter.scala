@@ -77,6 +77,14 @@ private[converters] trait ClassConverter {
     }
   }
 
+  // The correct type is stored in the ClassType but the correct Ids are stored in the ClassDef!
+  private def convertFields(ct: ClassType)(implicit funCtx: FunCtx): Seq[CAST.Var] = {
+    val fieldsIds = ct.classDef.fields map { f => convertToId(f.id) }
+    val fieldsTypes = ct.fields map { f => convertToType(f.getType) }
+    val fields = (fieldsIds zip fieldsTypes) map { case (id, typ) => CAST.Var(id, typ) }
+    fields
+  }
+
   // Register a given class (if needed) after converting its data structure to a C one.
   // NOTE it is okay to call this function more than once on the same class definition.
   private def registerClass(ct: ClassType)(implicit funCtx: FunCtx): CAST.Type = {
@@ -86,7 +94,7 @@ private[converters] trait ClassConverter {
     typ foreach { t => debug(s"$t is already defined") }
 
     typ getOrElse {
-      val fields = ct.fields map convertToVar
+      val fields = convertFields(ct)
       val typ = CAST.Struct(id, fields)
 
       registerType(typ)
@@ -139,18 +147,18 @@ private[converters] trait ClassConverter {
   }
 
   // Instantiate a given case class, taking into account the inheritance model
-  def instantiateCaseClass(typ: CaseClassType, args1: Seq[Expr])(implicit funCtx: FunCtx): CAST.Stmt = {
+  def instantiateCaseClass(cct: CaseClassType, args1: Seq[Expr])(implicit funCtx: FunCtx): CAST.Stmt = {
     def details(struct: CAST.Struct): (Seq[CAST.Stmt], CAST.StructInit) = {
       val types = struct.fields map { _.typ }
       val argsFs = convertAndNormaliseExecution(args1, types)
-      val fieldsIds = typ.fields map { _.id } map convertToId
+      val fieldsIds = convertFields(cct) map { _.id }
       val args = fieldsIds zip argsFs.values
 
       (argsFs.bodies, CAST.StructInit(args, struct))
     }
 
     def normalInstantiation: CAST.Stmt = {
-      val struct = convertToStruct(typ)
+      val struct = convertToStruct(cct)
       val (pre, act) = details(struct)
 
       pre ~~ act
@@ -163,9 +171,9 @@ private[converters] trait ClassConverter {
       // We need to identify the tag and the value name first,
       // then how to init the value properly.
 
-      debug(s"Instantiating ${typ.id} with arguments $args1.")
+      debug(s"Instantiating ${cct.id} with arguments $args1.")
 
-      val dataStruct = getStruct(convertToId(typ.id)).get // if None, then internalError anyway
+      val dataStruct = getStruct(convertToId(cct.id)).get // if None, then internalError anyway
       val tag = CAST.Enum.tagForType(dataStruct)
       val value = CAST.Union.valuePathForType(dataStruct)
 
@@ -180,7 +188,7 @@ private[converters] trait ClassConverter {
       pre ~~ CAST.StructInit(args, top)
     }
 
-    getTopStruct(typ) match {
+    getTopStruct(cct) match {
       case None => normalInstantiation
       case Some(top) => abstractInstantiation(top)
     }
