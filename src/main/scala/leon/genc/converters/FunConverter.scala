@@ -30,6 +30,14 @@ private[converters] trait FunConverter {
   // Get the extra argument identifiers for the function named `id`
   private def getFunExtraArgs(id: CAST.Id) = funExtraArgss.getOrElse(id, Seq())
 
+  private def generateFunId(tfd: TypedFunDef)(implicit funCtx: FunCtx): CAST.Id = {
+    if (tfd.fd.isGeneric) {
+      val baseId = tfd.id.uniqueName
+      val paramId = tfd.tps map { t => convertToType(t).name } mkString (sep = "_")
+      CAST.Id(baseId + "_" + paramId)
+    } else convertToId(tfd.id)
+  }
+
 
   // A variable can be locally declared (e.g. function parameter or local variable)
   // or it can be "inherited" from a more global context (e.g. inner functions have
@@ -81,7 +89,7 @@ private[converters] trait FunConverter {
   }
 
   // Convert the function invocation, and the function itself if it's required (e.g. with generics)
-  def convertFunInvoc(tfd: TypedFunDef, args0: Seq[Expr])(implicit funCtx: FunCtx): CAST.Stmt = {
+  def convertFunInvoc(tfd: TypedFunDef, stdArgs: Seq[Expr])(implicit funCtx: FunCtx): CAST.Stmt = {
     implicit val pos = tfd.getPos
 
     // Make sure the fd is not annotated with cCode.drop
@@ -91,10 +99,23 @@ private[converters] trait FunConverter {
     // Make sure the called function and its unit get processed at some point
     collectIfNeeded(tfd)
 
+    // For generic function, we need to instantiate a concreate implementation at least once,
+    // so we do it now that the function definition is typed.
+    if (tfd.fd.isGeneric) {
+      debug(s"Instantiating ${tfd.id} with ${tfd.tps}")
+      // TODO in order to handle nested generic function, the correct FunCtx should be
+      //      rebuild somehow. For now, we just don't do it.
+      val fun = convertToFun_normal(tfd)(FunCtx.empty, tfd.getPos)
+      //                       ^^^^^^^^^^^^
+      // Because we are not at the definition location of the function, but at the call site,
+      // we cannot use `funCtx` here.
+      registerFun(fun)
+    }
+
     // In addition to regular function parameters, add the callee's extra parameters
-    val id        = convertToId(tfd.id)
+    val id        = generateFunId(tfd)
     val types     = tfd.params map { p => convertToType(p.getType) }
-    val fs        = convertAndNormaliseExecution(args0, types)
+    val fs        = convertAndNormaliseExecution(stdArgs, types)
     val extraArgs = funCtx.toArgs(getFunExtraArgs(id))
     val args      = extraArgs ++ fs.values
 
@@ -127,7 +148,7 @@ private[converters] trait FunConverter {
       // Special case: the `main(args)` function is actually just a proxy for `_main()`
       val fun =
         if (fd.isMain) convertToFun_main(fd)
-        else           convertToFun_normal(fd)
+        else           convertToFun_normal(fd.typed)
 
       registerFun(fun)
 
@@ -163,15 +184,15 @@ private[converters] trait FunConverter {
     CAST.generateMain(convertToId(_mainFd.id), is_mainIntegral)
   }
 
-  private def convertToFun_normal(fd: FunDef)(implicit funCtx: FunCtx, pos: Position): CAST.Fun = {
+  private def convertToFun_normal(tfd: TypedFunDef)(implicit funCtx: FunCtx, pos: Position): CAST.Fun = {
     // Forbid return of array as they are allocated on the stack
-    if (containsArrayType(fd.returnType))
+    if (containsArrayType(tfd.returnType))
       CAST.unsupported("Returning arrays")
 
     // Extract basic information
-    val id        = convertToId(fd.id)
-    val retType   = convertToType(fd.returnType)
-    val stdParams = fd.params map convertToVar
+    val id        = generateFunId(tfd)
+    val retType   = convertToType(tfd.returnType)
+    val stdParams = tfd.params map convertToVar
 
     // Prepend existing variables from the outer function context to
     // this function's parameters
@@ -182,11 +203,11 @@ private[converters] trait FunConverter {
     //  - either the function is defined in Scala, or
     //  - the user provided a C code to use instead
 
-    val body = if (fd.isManuallyDefined) {
+    val body = if (tfd.fd.isManuallyDefined) {
       if (!funCtx.isEmpty)
         CAST.unsupported(s"Manual implementation cannot be specified for nested functions")
 
-      val manualDef = fd.getManualDefinition
+      val manualDef = tfd.fd.getManualDefinition
 
       // Register all the necessary includes
       manualDef.includes foreach { i => registerInclude(CAST.Include(i)) }
@@ -204,7 +225,7 @@ private[converters] trait FunConverter {
 
       val funCtx2 = funCtx.lift.extend(stdParams)
 
-      val b    = convertToStmt(fd.fullBody)(funCtx2)
+      val b    = convertToStmt(tfd.fullBody)(funCtx2)
       val body = retType match {
         case CAST.Void => b
         case _         => injectReturn(b)
