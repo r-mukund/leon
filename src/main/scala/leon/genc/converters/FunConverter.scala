@@ -22,6 +22,9 @@ private[converters] trait FunConverter {
   // FunctionInvocation conversion
   private var funExtraArgss = Map[CAST.Id, Seq[CAST.Id]]()
 
+  // Cache used by convertTypedFunDef.
+  private val funCache = collection.mutable.Map[TypedFunDef, CAST.Fun]()
+
   // Register extra function argument for the function named `id`
   private def registerFunExtraArgs(id: CAST.Id, params: Seq[CAST.Id]) {
     funExtraArgss = funExtraArgss + ((id, params))
@@ -187,7 +190,11 @@ private[converters] trait FunConverter {
     fun
   }
 
-  private def convertTypedFunDef(tfd: TypedFunDef)(implicit funCtx: FunCtx): CAST.Fun = {
+  // Make sure not to generate a function more than once.
+  private def convertTypedFunDef(tfd: TypedFunDef)(implicit funCtx: FunCtx): CAST.Fun =
+    funCache.getOrElseUpdate(tfd, convertTypedFunDefImpl(tfd))
+
+  private def convertTypedFunDefImpl(tfd: TypedFunDef)(implicit funCtx: FunCtx): CAST.Fun = {
     implicit val pos = tfd.getPos
 
     // Forbid return of array as they are allocated on the stack
