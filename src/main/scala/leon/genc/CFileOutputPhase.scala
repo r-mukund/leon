@@ -23,7 +23,7 @@ object CFileOutputPhase extends UnitPhase[CAST.Prog] {
   override val definedOptions: Set[LeonOptionDef[Any]] = Set(optOutputFile)
 
   def apply(ctx: LeonContext, program: CAST.Prog) {
-    val timer = ctx.timers.cFileOutput.start()
+    val timer = ctx.timers.genc.print.start()
 
     // Get the output file name from command line options, or use default
     val outputFile = new File(ctx.findOptionOrDefault(optOutputFile))
