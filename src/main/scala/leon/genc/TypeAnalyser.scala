@@ -29,19 +29,18 @@ private[genc] trait TypeAnalyser {
     case ArrayType(_)         => true
     case TupleType(bases)     => bases exists containsArrayType
 
-    case CaseClassType(cd, _) => classContainsArrayType(cd)
-    case AbstractClassType(cd, _) => classContainsArrayType(cd)
+    case ct: ClassType        => classContainsArrayType(ct)
 
     case _                    => CAST.unsupported(s"Unexpected TypeTree '$typ': ${typ.getClass}")
   }
 
-  private def classContainsArrayType(cd: ClassDef)(implicit pos: Position): Boolean = {
-    if (cd.isDropped)
+  private def classContainsArrayType(ct: ClassType)(implicit pos: Position): Boolean = {
+    if (ct.classDef.isDropped)
       CAST.unsupported(s"Using a dropped type")
 
     // If a case class is manually typdef'd, consider it to be a "returnable" type
-    if (getTypedef(cd).isDefined) false
-    else cd.fields map { _.getType } exists containsArrayType
+    if (getTypedef(ct.classDef).isDefined) false
+    else ct.fields map { _.getType } exists containsArrayType
   }
 
 }
