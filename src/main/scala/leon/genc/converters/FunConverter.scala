@@ -105,11 +105,10 @@ private[converters] trait FunConverter {
       debug(s"Instantiating ${tfd.id} with ${tfd.tps}")
       // TODO in order to handle nested generic function, the correct FunCtx should be
       //      rebuild somehow. For now, we just don't do it.
-      val fun = convertToFun_normal(tfd)(FunCtx.empty, tfd.getPos)
-      //                       ^^^^^^^^^^^^
+      val fun = convertTypedFunDef(tfd)(FunCtx.empty, tfd.getPos)
+      //                                ^^^^^^^^^^^^
       // Because we are not at the definition location of the function, but at the call site,
       // we cannot use `funCtx` here.
-      registerFun(fun)
     }
 
     // In addition to regular function parameters, add the callee's extra parameters
@@ -147,16 +146,14 @@ private[converters] trait FunConverter {
     } else {
       // Special case: the `main(args)` function is actually just a proxy for `_main()`
       val fun =
-        if (fd.isMain) convertToFun_main(fd)
-        else           convertToFun_normal(fd.typed)
-
-      registerFun(fun)
+        if (fd.isMain) generateMain(fd)
+        else           convertTypedFunDef(fd.typed)
 
       Some(fun)
     }
   }
 
-  private def convertToFun_main(fd: FunDef)(implicit funCtx: FunCtx, pos: Position): CAST.Fun = {
+  private def generateMain(fd: FunDef)(implicit funCtx: FunCtx, pos: Position): CAST.Fun = {
     if (!fd.isExtern)
       CAST.unsupported("It is expected for `main(args)` to be extern")
 
@@ -181,10 +178,14 @@ private[converters] trait FunConverter {
 
     // Artificially create the function (since it is tagged @extern)
     val is_mainIntegral = _mainFd.returnType == Int32Type
-    CAST.generateMain(convertToId(_mainFd.id), is_mainIntegral)
+    val fun = CAST.generateMain(convertToId(_mainFd.id), is_mainIntegral)
+
+    registerFun(fun)
+
+    fun
   }
 
-  private def convertToFun_normal(tfd: TypedFunDef)(implicit funCtx: FunCtx, pos: Position): CAST.Fun = {
+  private def convertTypedFunDef(tfd: TypedFunDef)(implicit funCtx: FunCtx, pos: Position): CAST.Fun = {
     // Forbid return of array as they are allocated on the stack
     if (containsArrayType(tfd.returnType))
       CAST.unsupported("Returning arrays")
@@ -234,7 +235,11 @@ private[converters] trait FunConverter {
       Left(body)
     }
 
-    CAST.Fun(id, retType, params, body)
+    val fun = CAST.Fun(id, retType, params, body)
+
+    registerFun(fun)
+
+    fun
   }
 
 }
