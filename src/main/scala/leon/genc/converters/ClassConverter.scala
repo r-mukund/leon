@@ -21,7 +21,7 @@ private[converters] trait ClassConverter {
 
   // Add the given set of ClassDef into the registery
   private def registerFullHierarchy(top: CAST.Struct, set: Seq[CaseClassType]) {
-    debug(s"Registering hierarchy with $top for ${set map { _.id }}")
+    debug(s"Registering hierarchy with top = $top for children: ${set map { _.id } mkString ", "}")
 
     for (clazz <- set)
       classRegistery = classRegistery + (clazz -> top)
@@ -59,7 +59,7 @@ private[converters] trait ClassConverter {
 
       debug(s"Registrering class hierarchy of ${ct.id}")
       debug(s"Top = ${top.id}")
-      debug(s"Children = ${ children map { _.id } mkString ", " }")
+      debug(s"Children = ${children map { _.id } mkString ", "}")
 
       val childrenStructs = children map registerClass
 
