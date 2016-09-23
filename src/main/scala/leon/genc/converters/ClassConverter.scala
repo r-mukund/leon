@@ -41,7 +41,7 @@ private[converters] trait ClassConverter {
   // - Register the enum, union & the structs to ProgConverter
   // - Register the class hierarchy as well
   // - Return the struct representing this class hierarchy
-  private def registerClassHierarchy(ct: ClassType): CAST.Type = {
+  private def registerClassHierarchy(ct: ClassType)(implicit funCtx: FunCtx): CAST.Type = {
     val top = ct.getTopParent
     val id = convertToId(top.id)
 
@@ -79,9 +79,7 @@ private[converters] trait ClassConverter {
 
   // Register a given class (if needed) after converting its data structure to a C one.
   // NOTE it is okay to call this function more than once on the same class definition.
-  private def registerClass(ct: ClassType): CAST.Type = {
-    implicit val ctx = FunCtx.empty
-
+  private def registerClass(ct: ClassType)(implicit funCtx: FunCtx): CAST.Type = {
     val id = convertToId(ct.id)
 
     val typ = getType(id)
@@ -122,7 +120,7 @@ private[converters] trait ClassConverter {
   // Convert a given class into a C structure; make some additional checks to
   // restrict the input class to the supported set of features.
   // NOTE return NoType when given a generic class definition.
-  def convertClass(cd: ClassDef): CAST.Type = convertClassCore(cd) orElse getTypedef(cd) getOrElse {
+  def convertClass(cd: ClassDef)(implicit funCtx: FunCtx): CAST.Type = convertClassCore(cd) orElse getTypedef(cd) getOrElse {
     if (cd.isGeneric) {
       debug(s"${cd.id} is generic => cannot convert it now, only when instantiated with concreate type parameters")
       CAST.NoType
