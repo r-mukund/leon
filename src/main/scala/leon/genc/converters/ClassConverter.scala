@@ -163,6 +163,9 @@ private[converters] trait ClassConverter {
 
   // Instantiate a given case class, taking into account the inheritance model
   def instantiateCaseClass(cct: CaseClassType, args1: Seq[Expr])(implicit funCtx: FunCtx): CAST.Stmt = {
+    // Make sure the type was processed (which might not be the case yet for generic types)
+    convertClass(cct)(FunCtx.empty) // TODO is this the correct FunCtx?
+
     def details(struct: CAST.Struct): (Seq[CAST.Stmt], CAST.StructInit) = {
       val types = struct.fields map { _.typ }
       val argsFs = convertAndNormaliseExecution(args1, types)
