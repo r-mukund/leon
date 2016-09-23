@@ -12,7 +12,9 @@ object GenerateCPhase extends SimpleLeonPhase[Program, CAST.Prog] {
 
   def apply(ctx: LeonContext, program: Program) = {
     ctx.reporter.debug("Running code conversion phase: " + name)(utils.DebugSectionLeon)
+    val timer = ctx.timers.genc.start()
     val cprogram = new CConverter(ctx, program).convert
+    timer.stop()
     cprogram
   }
 
