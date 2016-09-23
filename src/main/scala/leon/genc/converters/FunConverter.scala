@@ -28,7 +28,7 @@ private[converters] trait FunConverter {
   }
 
   // Get the extra argument identifiers for the function named `id`
-  def getFunExtraArgs(id: CAST.Id) = funExtraArgss.getOrElse(id, Seq())
+  private def getFunExtraArgs(id: CAST.Id) = funExtraArgss.getOrElse(id, Seq())
 
 
   // A variable can be locally declared (e.g. function parameter or local variable)
@@ -108,16 +108,22 @@ private[converters] trait FunConverter {
     debug(s"Converting function ${fd.id.uniqueName} with annotations: ${fd.annotations}")
 
     if (!fd.isMain && fd.isExtern && !fd.isManuallyDefined && !fd.isDropped)
-      CAST.unsupported("Extern function need to be either manually defined or dropped")
+      CAST.unsupported("Extern functions need to be either manually defined or dropped")
 
     if (fd.isManuallyDefined && fd.isDropped)
-      CAST.unsupported("Function cannot be dropped and manually implemented at the same time")
+      CAST.unsupported("Functions cannot be dropped and manually implemented at the same time")
 
     if (fd.isGeneric && fd.isManuallyDefined)
-      CAST.unsupported(s"${fd.id} cannot be both a generic function and manually defined")
+      CAST.unsupported(s"Functions cannot be both a generic function and manually defined")
+
+    if (fd.isGeneric && !funCtx.isEmpty)
+      CAST.unsupported(s"Generic functions cannot be defined inside another function") // TODO drop this limitation
 
     if (fd.isDropped) None
-    else {
+    else if (fd.isGeneric) {
+      debug(s"${fd.id} is generic => skipped for now")
+      None
+    } else {
       // Special case: the `main(args)` function is actually just a proxy for `_main()`
       val fun =
         if (fd.isMain) convertToFun_main(fd)
