@@ -3,20 +3,29 @@ package grammars
 package enumerators
 
 import leon.grammars.enumerators.CandidateScorer.Score
-import leon.synthesis.SynthesisPhase
+import leon.synthesis.{Example, SynthesisPhase}
 import purescala.Expressions.Expr
+import scala.collection.mutable
 
 class ProbwiseTopdownEnumerator(
     protected val grammar: ExpressionGrammar,
     init: Label,
-    scorer: CandidateScorer[Expr]
+    scorer: CandidateScorer[Label, Expr],
+    examples: Seq[Example],
+    eval: (Expr, Example) => Option[Expr],
+    disambiguate: Boolean
   )(implicit ctx: LeonContext)
-  extends AbstractProbwiseTopdownEnumerator[Label, Expr](scorer)
+  extends AbstractProbwiseTopdownEnumerator[Label, Expr](scorer, disambiguate)
   with GrammarEnumerator
 {
   val hors = GrammarEnumerator.horizonMap(init, productions).mapValues(_._2)
   protected def productions(nt: Label) = grammar.getProductions(nt)
   protected def nthor(nt: Label): Double = hors(nt)
+
+  def sig(r: Expr): Option[Seq[Expr]] = {
+    examples mapM (eval(r, _))
+  }
+
 }
 
 object EnumeratorStats {
@@ -27,19 +36,42 @@ object EnumeratorStats {
   var cegisIterCount: Int = 0
 }
 
-abstract class AbstractProbwiseTopdownEnumerator[NT, R](scorer: CandidateScorer[R])(implicit ctx: LeonContext) {
+abstract class AbstractProbwiseTopdownEnumerator[NT, R](scorer: CandidateScorer[NT, R], disambiguate: Boolean)(implicit ctx: LeonContext) {
 
   import ctx.reporter._
-  implicit val debugSection = leon.utils.DebugSectionSynthesis
+
+  implicit protected val debugSection = leon.utils.DebugSectionSynthesis
 
   protected def productions(nt: NT): Seq[ProductionRule[NT, R]]
 
   protected def nthor(nt: NT): Double
 
-  val coeff = ctx.findOptionOrDefault(SynthesisPhase.optProbwiseTopdownCoeff)
+  protected val coeff = ctx.findOptionOrDefault(SynthesisPhase.optProbwiseTopdownCoeff)
+
+  protected val sigToNormalExp = mutable.Map[(NT, Sig), Expansion[NT, R]]()
+
+  type Sig = Seq[R]
+
+  def sig(r: R): Option[Sig]
+
+  protected def isClassRepresentative(e: Expansion[NT, R]): Boolean =
+    !disambiguate || !e.complete || {
+      sig(e.produce).exists { theSig =>
+        sigToNormalExp.get(e.nt, theSig) match {
+          case None =>
+            sigToNormalExp += (e.nt, theSig) -> e
+            true
+          case Some(`e`) =>
+            true
+          case _ =>
+            false
+        }
+      }
+    }
 
   /**
     * Represents an element of the worklist
+    *
     * @param expansion The partial expansion under consideration
     * @param logProb The log probability already accumulated by the expansion
     * @param horizon The minimum cost that this expansion will accumulate before becoming concrete
@@ -75,7 +107,7 @@ abstract class AbstractProbwiseTopdownEnumerator[NT, R](scorer: CandidateScorer[
 
   def iterator(nt: NT): Iterator[R] = new Iterator[R] {
     val ordering = Ordering.by[WorklistElement, Double](_.priority)
-    val worklist = new scala.collection.mutable.PriorityQueue[WorklistElement]()(ordering)
+    val worklist = new mutable.PriorityQueue[WorklistElement]()(ordering)
 
     val seedExpansion = NonTerminalInstance[NT, R](nt)
     val seedScore = scorer.score(seedExpansion, Set(), eagerReturnOnFalse = false)
@@ -103,7 +135,12 @@ abstract class AbstractProbwiseTopdownEnumerator[NT, R](scorer: CandidateScorer[
     }
 
     def prepareNext(): Unit = {
-      while (worklist.nonEmpty && !worklist.head.expansion.complete) {
+      def elemCompliesTests(elem: WorklistElement) = {
+        val score = scorer.score(elem.expansion, elem.score.yesExs, eagerReturnOnFalse = false)
+        score.noExs.isEmpty
+      }
+
+      while (worklist.nonEmpty && (!worklist.head.expansion.complete || !elemCompliesTests(worklist.head))) {
         val head = worklist.dequeue
         val headScore = scorer.score(head.expansion, head.score.yesExs, eagerReturnOnFalse = false)
 
@@ -112,11 +149,14 @@ abstract class AbstractProbwiseTopdownEnumerator[NT, R](scorer: CandidateScorer[
           worklist ++= newElems
 
           EnumeratorStats.partialEvalAcceptCount += 1
-          if (worklist.size >= 1.5 * lastPrint) {
-            debug(s"Worklist size: ${worklist.size}")
-            debug(s"Accept / reject ratio: ${EnumeratorStats.partialEvalAcceptCount} /" +
-              s"${EnumeratorStats.partialEvalRejectionCount}")
-            lastPrint = worklist.size
+          ifDebug{ printer =>
+            if (worklist.size >= 2 * lastPrint) {
+              printer(s"Worklist size: ${worklist.size}")
+              //printer(s"Worklist head: ${worklist.head.expansion.falseProduce()}")
+              printer(s"Accept / reject ratio: ${EnumeratorStats.partialEvalAcceptCount} /" +
+                s"${EnumeratorStats.partialEvalRejectionCount}")
+              lastPrint = worklist.size
+            }
           }
         } else {
           EnumeratorStats.partialEvalRejectionCount += 1
@@ -134,12 +174,15 @@ abstract class AbstractProbwiseTopdownEnumerator[NT, R](scorer: CandidateScorer[
     expansion match {
       case NonTerminalInstance(nt) =>
         val prodRules = productions(nt)
-        for (rule <- prodRules) yield {
-          val expansion = ProdRuleInstance(
+        for {
+          rule <- prodRules
+          expansion = ProdRuleInstance(
             nt,
             rule,
             rule.subTrees.map(ntChild => NonTerminalInstance[NT, R](ntChild)).toList
           )
+          if isClassRepresentative(expansion)
+        } yield {
           val logProbPrime = elem.logProb + rule.weight
           val horizonPrime = rule.subTrees.map(nthor).sum
           WorklistElement(expansion, logProbPrime, horizonPrime, elemScore)
@@ -152,15 +195,22 @@ abstract class AbstractProbwiseTopdownEnumerator[NT, R](scorer: CandidateScorer[
           case Nil =>
             throw new IllegalArgumentException()
           case csHd :: csTl if csHd.complete =>
-            for (csTlExp <- expandChildren(csTl)) yield (csHd :: csTlExp._1, csTlExp._2)
+            for ((expansions, logProb) <- expandChildren(csTl)) yield (csHd :: expansions, logProb)
           case csHd :: csTl =>
-            for (csHdExp <- expandNext(WorklistElement(csHd, 0.0, 0.0, elemScore), elemScore))
-            yield (csHdExp.expansion :: csTl, csHdExp.logProb)
+            for {
+              csHdExp <- expandNext(WorklistElement(csHd, 0.0, 0.0, elemScore), elemScore)
+              if isClassRepresentative(csHdExp.expansion)
+            } yield {
+              (csHdExp.expansion :: csTl, csHdExp.logProb)
+            }
         }
 
-        for (childExpansion <- expandChildren(children)) yield {
-          val expPrime = ProdRuleInstance(nt, rule, childExpansion._1)
-          val logProbPrime = elem.logProb + childExpansion._2
+        for {
+          (expansions, logProb) <- expandChildren(children)
+          expPrime = ProdRuleInstance(nt, rule, expansions)
+          if isClassRepresentative(expPrime)
+        } yield {
+          val logProbPrime = elem.logProb + logProb
           val horizonPrime = expPrime.horizon(nthor)
           WorklistElement(expPrime, logProbPrime, horizonPrime, elemScore)
         }
